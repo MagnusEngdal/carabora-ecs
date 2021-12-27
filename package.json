@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "license": "MIT",
+  "workspaces": [
+    "carabora-ecs",
+    "examples/*"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "lib": ["esnext", "dom"],
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "target": "esnext",
+    "strict": true
+  }
+}
