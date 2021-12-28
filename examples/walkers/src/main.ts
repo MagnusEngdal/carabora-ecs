@@ -9,8 +9,21 @@ const ctx = canvas.getContext("2d")!;
 ctx.imageSmoothingEnabled = false;
 document.body.appendChild(canvas);
 
-const ecs = createEcs();
-const Position = ecs.component("pos", { x: 0, y: 0 });
+interface Position {
+  x: number;
+  y: number;
+}
+
+const ecs = createEcs<
+  { t: number; o: { x: number } },
+  {
+    pos: Position;
+    sprites: Record<"left" | "right", HTMLCanvasElement | HTMLImageElement>;
+    dir: "left" | "right";
+    seed: number;
+  }
+>();
+const Position = ecs.component<Position>("pos", { x: 1, y: 1 });
 const Sprites = ecs.component("sprites", {});
 const Direction = ecs.component("dir", "left");
 const Seed = ecs.component("seed", 0);
@@ -79,7 +92,7 @@ img.onload = () => {
       t++;
       ctx.fillStyle = "#151102";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ecs.update({ t });
+      ecs.update({ t, o: { x: 1 } });
       requestAnimationFrame(loop);
     }
   };

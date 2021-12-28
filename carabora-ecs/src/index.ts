@@ -4,9 +4,9 @@ interface UpdateProps {
   t: number;
 }
 
-interface System {
-  setup?: (data: any, props: SetupProps) => void;
-  update: (data: any, props: UpdateProps) => void;
+interface System<TickPayload, Components> {
+  setup?: (data: Components) => void;
+  update: (data: Components, payload: TickPayload) => void;
   query: string[];
 }
 
@@ -18,10 +18,10 @@ interface ComponentStore {
 
 type Entity = number;
 
-export const createEcs = () => {
+export const createEcs = <TickPayload, Components>() => {
   const components: Record<string, Component> = {};
   const entities = new Map<Entity, ComponentStore>();
-  const systems = new Map<System, Set<Entity>>();
+  const systems = new Map<System<TickPayload, Components>, Set<Entity>>();
 
   const updateEntity = (entity: Entity) => {
     for (let s of systems.keys()) {
@@ -29,7 +29,10 @@ export const createEcs = () => {
     }
   };
 
-  const updateSystem = (entity: Entity, system: System) => {
+  const updateSystem = (
+    entity: Entity,
+    system: System<TickPayload, Components>
+  ) => {
     const ent = entities.get(entity);
     const sys = systems.get(system);
     if (!ent || !sys) return;
@@ -89,7 +92,7 @@ export const createEcs = () => {
       }
     },
 
-    system: (system: System) => {
+    system: (system: System<TickPayload, Components>) => {
       systems.set(system, new Set());
       for (let entity of entities.keys()) {
         updateSystem(entity, system);
@@ -100,16 +103,19 @@ export const createEcs = () => {
       for (let [system, sysEntities] of systems) {
         if (typeof system.setup === "function") {
           for (let e of sysEntities) {
-            system.setup(entities.get(e)?.components, {});
+            system.setup(entities.get(e)?.components as unknown as Components);
           }
         }
       }
     },
 
-    update: (props?: { t?: number }) => {
+    update: (payload: TickPayload) => {
       for (let [system, sysEntities] of systems) {
         for (let e of sysEntities) {
-          system.update(entities.get(e)?.components, { t: 0, ...props });
+          system.update(
+            entities.get(e)?.components as unknown as Components,
+            payload
+          );
         }
       }
     },
