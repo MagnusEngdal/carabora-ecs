@@ -3,7 +3,7 @@
   "license": "MIT",
   "scripts": {
     "build": "npm run build --workspace=carabora-ecs",
-    "watch": "npm run watch --workspace=carabora-ecs",
+    "dev": "npm run watch --workspace=carabora-ecs",
     "tsc": "npm run tsc --workspace=carabora-ecs",
     "pub": "npm publish --access=public --workspace=carabora-ecs",
     "ver": "npm version patch --workspace=carabora-ecs"

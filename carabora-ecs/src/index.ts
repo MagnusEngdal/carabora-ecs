@@ -1,27 +1,27 @@
-interface SetupProps {}
-
-interface UpdateProps {
-  t: number;
-}
-
-interface System<TickPayload, Components> {
-  setup?: (data: Components) => void;
-  update: (data: Components, payload: TickPayload) => void;
+interface System<C, P> {
+  setup?: (data: { id: number; c: C }) => void;
+  update: (data: {
+    id: number;
+    c: C;
+    payload: P;
+    entities: ComponentStore[];
+  }) => void;
   query: string[];
 }
 
-export interface Component {}
+export type Component = any;
 
 interface ComponentStore {
+  id: number;
   components: Record<string, Component>;
 }
 
 type Entity = number;
 
-export const createEcs = <TickPayload, Components>() => {
+export const createEcs = <P>() => {
   const components: Record<string, Component> = {};
   const entities = new Map<Entity, ComponentStore>();
-  const systems = new Map<System<TickPayload, Components>, Set<Entity>>();
+  const systems = new Map<System<any, P>, Set<Entity>>();
 
   const updateEntity = (entity: Entity) => {
     for (let s of systems.keys()) {
@@ -29,10 +29,9 @@ export const createEcs = <TickPayload, Components>() => {
     }
   };
 
-  const updateSystem = (
-    entity: Entity,
-    system: System<TickPayload, Components>
-  ) => {
+  const query = (components: string[]) => {};
+
+  const updateSystem = (entity: Entity, system: System<any, any>) => {
     const ent = entities.get(entity);
     const sys = systems.get(system);
     if (!ent || !sys) return;
@@ -56,6 +55,7 @@ export const createEcs = <TickPayload, Components>() => {
     entity: () => {
       const entity = entities.size + 1;
       entities.set(entity, {
+        id: entity,
         components: {},
       });
 
@@ -68,12 +68,14 @@ export const createEcs = <TickPayload, Components>() => {
       return entityHelpers;
     },
 
-    component: <T>(name: string, init?: T) => {
+    entities: () => {},
+
+    component: <C>(name: string, init?: C) => {
       components[name] = init ?? {};
       return name;
     },
 
-    addComponent: <T>(entity: Entity, name: string, init?: T) => {
+    addComponent: <C>(entity: Entity, name: string, init?: C) => {
       const ent = entities.get(entity);
 
       if (
@@ -92,7 +94,7 @@ export const createEcs = <TickPayload, Components>() => {
       }
     },
 
-    system: (system: System<TickPayload, Components>) => {
+    system: <C = any>(system: System<C, P>) => {
       systems.set(system, new Set());
       for (let entity of entities.keys()) {
         updateSystem(entity, system);
@@ -103,19 +105,32 @@ export const createEcs = <TickPayload, Components>() => {
       for (let [system, sysEntities] of systems) {
         if (typeof system.setup === "function") {
           for (let e of sysEntities) {
-            system.setup(entities.get(e)?.components as unknown as Components);
+            system.setup({
+              id: e,
+              c: entities.get(e)?.components,
+            });
           }
         }
       }
     },
 
-    update: (payload: TickPayload) => {
+    update: (payload?: P) => {
       for (let [system, sysEntities] of systems) {
+        const sysEntitiesArray = [...sysEntities.values()].map((id) => {
+          const e = entities.get(id);
+          if (!e) throw Error("Entity not found");
+          return e;
+        });
         for (let e of sysEntities) {
-          system.update(
-            entities.get(e)?.components as unknown as Components,
-            payload
-          );
+          const entity = entities.get(e);
+          if (entity) {
+            system.update({
+              id: e,
+              c: entity.components,
+              payload: payload as P,
+              entities: sysEntitiesArray,
+            });
+          }
         }
       }
     },

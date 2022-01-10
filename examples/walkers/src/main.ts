@@ -13,20 +13,17 @@ interface Position {
   x: number;
   y: number;
 }
+type Direction = "left" | "right";
+type Seed = number;
+type Sprites = {
+  [key: string]: HTMLCanvasElement | HTMLImageElement;
+};
 
-const ecs = createEcs<
-  { t: number; o: { x: number } },
-  {
-    pos: Position;
-    sprites: Record<"left" | "right", HTMLCanvasElement | HTMLImageElement>;
-    dir: "left" | "right";
-    seed: number;
-  }
->();
+const ecs = createEcs<{ t: number }>();
 const Position = ecs.component<Position>("pos", { x: 1, y: 1 });
-const Sprites = ecs.component("sprites", {});
-const Direction = ecs.component("dir", "left");
-const Seed = ecs.component("seed", 0);
+const Sprites = ecs.component<Sprites>("sprites", {});
+const Direction = ecs.component<Direction>("dir", "left");
+const Seed = ecs.component<Seed>("seed", 0);
 
 const img = document.createElement("img");
 img.src = sprite;
@@ -40,8 +37,12 @@ for (let i = 0; i < 100; i++) {
 }
 
 img.onload = () => {
-  ecs.system({
-    update: ({ pos, dir, seed }) => {
+  ecs.system<{
+    pos: Position;
+    dir: Direction;
+    seed: Seed;
+  }>({
+    update: ({ c: { pos, dir, seed } }) => {
       const speed = 0.8;
       if (dir === "right") {
         pos.x += speed - seed / 120;
@@ -53,8 +54,14 @@ img.onload = () => {
     },
     query: [Position, Direction, Seed],
   });
-  ecs.system({
-    setup: ({ sprites }) => {
+
+  ecs.system<{
+    sprites: Sprites;
+    pos: Position;
+    dir: Direction;
+    seed: Seed;
+  }>({
+    setup: ({ c: { sprites } }) => {
       const imageCanvas = document.createElement("canvas");
       imageCanvas.width = img.width;
       imageCanvas.height = img.height;
@@ -66,10 +73,9 @@ img.onload = () => {
       sprites.left = imageCanvas;
       sprites.right = img;
     },
-    update: ({ sprites, pos, dir, seed }, { t }) => {
+    update: ({ c: { sprites, pos, dir, seed } }) => {
       const scale = 1;
       const frame = Math.floor(((t + seed) / 5) % 4);
-
       ctx.drawImage(
         sprites[dir],
         17 + frame * 48,
@@ -82,7 +88,7 @@ img.onload = () => {
         24 * scale
       );
     },
-    query: [Position, Sprites, Seed],
+    query: [Position, Sprites, Seed, Direction],
   });
 
   let t = 0;
@@ -92,7 +98,7 @@ img.onload = () => {
       t++;
       ctx.fillStyle = "#151102";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ecs.update({ t, o: { x: 1 } });
+      ecs.update({ t });
       requestAnimationFrame(loop);
     }
   };
