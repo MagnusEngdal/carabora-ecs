@@ -1,37 +1,39 @@
+export interface Entity<C> {
+  id: number;
+  add: <N extends keyof C>(name: N, init?: C[N]) => void;
+  readonly components: Partial<C>;
+}
+
+type Components<C> = Partial<C>;
+
+interface ComponentStore<C> {
+  id: number;
+  components: Partial<Record<keyof C, any>>;
+}
+
 interface System<C, P> {
-  setup?: (data: { id: number; c: C }) => void;
-  update: (data: {
+  setup?: (props: { id: number; c: Components<C> }) => void;
+  update: <O extends keyof C>(props: {
     id: number;
     c: C;
     payload: P;
-    entities: ComponentStore[];
+    entities: ComponentStore<C>[];
   }) => void;
-  query: string[];
+  query: (keyof C)[];
 }
 
-export type Component = any;
+export const createEcs = <C = Record<string, any>, P = any>() => {
+  const components: Components<C> = {};
+  const entities = new Map<number, ComponentStore<C>>();
+  const systems = new Map<System<C, P>, Set<number>>();
 
-interface ComponentStore {
-  id: number;
-  components: Record<string, Component>;
-}
-
-type Entity = number;
-
-export const createEcs = <P>() => {
-  const components: Record<string, Component> = {};
-  const entities = new Map<Entity, ComponentStore>();
-  const systems = new Map<System<any, P>, Set<Entity>>();
-
-  const updateEntity = (entity: Entity) => {
+  const updateEntity = (entity: number) => {
     for (let s of systems.keys()) {
       updateSystem(entity, s);
     }
   };
 
-  const query = (components: string[]) => {};
-
-  const updateSystem = (entity: Entity, system: System<any, any>) => {
+  const updateSystem = (entity: number, system: System<C, P>) => {
     const ent = entities.get(entity);
     const sys = systems.get(system);
     if (!ent || !sys) return;
@@ -56,26 +58,42 @@ export const createEcs = <P>() => {
       const entity = entities.size + 1;
       entities.set(entity, {
         id: entity,
-        components: {},
+        components: {} as Components<C>,
       });
 
-      const entityHelpers = {
-        add: <T>(name: string, init?: T) => {
-          e.addComponent<T>(entity, name, init);
+      const entityHelpers: Entity<C> = {
+        id: entity,
+        add: <N extends keyof C>(name: N, init?: C[N]) => {
+          if (typeof name === "string") {
+            e.addComponent(entity, name, init);
+          }
+        },
+        get components() {
+          const e = entities.get(entity);
+
+          if (!e) {
+            throw Error(
+              "Entity not found while attempting to retrive components"
+            );
+          }
+
+          return e.components as Components<C>;
         },
       };
 
       return entityHelpers;
     },
 
-    entities: () => {},
-
-    component: <C>(name: string, init?: C) => {
-      components[name] = init ?? {};
+    component: <I extends keyof C>(name: keyof C, init?: C[I]) => {
+      components[name] = init ?? ({} as C[I]);
       return name;
     },
 
-    addComponent: <C>(entity: Entity, name: string, init?: C) => {
+    addComponent: <I extends keyof C>(
+      entity: number,
+      name: keyof C,
+      init?: C[I]
+    ) => {
       const ent = entities.get(entity);
 
       if (
@@ -94,7 +112,7 @@ export const createEcs = <P>() => {
       }
     },
 
-    system: <C = any>(system: System<C, P>) => {
+    system: (system: System<C, P>) => {
       systems.set(system, new Set());
       for (let entity of entities.keys()) {
         updateSystem(entity, system);
@@ -105,10 +123,13 @@ export const createEcs = <P>() => {
       for (let [system, sysEntities] of systems) {
         if (typeof system.setup === "function") {
           for (let e of sysEntities) {
-            system.setup({
-              id: e,
-              c: entities.get(e)?.components,
-            });
+            const ent = entities.get(e);
+            if (ent) {
+              system.setup({
+                id: e,
+                c: ent.components,
+              });
+            }
           }
         }
       }
@@ -126,7 +147,7 @@ export const createEcs = <P>() => {
           if (entity) {
             system.update({
               id: e,
-              c: entity.components,
+              c: entity.components as C,
               payload: payload as P,
               entities: sysEntitiesArray,
             });

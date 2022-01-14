@@ -16,27 +16,31 @@ const bg = document.createElement("img");
 img.src = block;
 bg.src = bricks;
 
-const ecs = createEcs();
-
 interface Position {
   x: number;
   y: number;
 }
-const Position = ecs.component("pos");
-
 interface Velocity {
   x: number;
   y: number;
 }
-const Velocity = ecs.component("vel");
-
 interface Dimensions {
   width: number;
   height: number;
 }
+interface Components {
+  pos: Position;
+  vel: Velocity;
+  dimensions: Dimensions;
+}
+
+const ecs = createEcs<Components, {}>();
+
+const Position = ecs.component("pos");
+const Velocity = ecs.component("vel");
 const Dimensions = ecs.component("dimensions");
 
-ecs.system<{ pos: Position; vel: Velocity; dimensions: Dimensions }>({
+ecs.system({
   update: ({
     id,
     c: {
@@ -108,7 +112,7 @@ ecs.system<{ pos: Position; vel: Velocity; dimensions: Dimensions }>({
   query: [Position, Velocity, Dimensions],
 });
 
-ecs.system<{ pos: Position; vel: Velocity; dimensions: Dimensions }>({
+ecs.system({
   update: ({ c: { pos, vel } }) => {
     pos.x += vel.x;
     pos.y += vel.y;
@@ -125,15 +129,15 @@ ecs.system({
 
 for (let i = 0; i < 20; i++) {
   const block = ecs.entity();
-  block.add<Position>(Position, {
+  block.add(Position, {
     x: Math.random() * 300,
     y: Math.random() * 300,
   });
-  block.add<Velocity>(Velocity, {
+  block.add(Velocity, {
     x: Math.random() - 0.5,
     y: Math.random() - 0.5,
   });
-  block.add<Dimensions>(Dimensions, {
+  block.add(Dimensions, {
     width: 24,
     height: 32,
   });

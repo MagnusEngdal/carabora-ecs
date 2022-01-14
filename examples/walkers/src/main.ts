@@ -9,21 +9,11 @@ const ctx = canvas.getContext("2d")!;
 ctx.imageSmoothingEnabled = false;
 document.body.appendChild(canvas);
 
-interface Position {
-  x: number;
-  y: number;
-}
-type Direction = "left" | "right";
-type Seed = number;
-type Sprites = {
-  [key: string]: HTMLCanvasElement | HTMLImageElement;
-};
-
-const ecs = createEcs<{ t: number }>();
-const Position = ecs.component<Position>("pos", { x: 1, y: 1 });
-const Sprites = ecs.component<Sprites>("sprites", {});
-const Direction = ecs.component<Direction>("dir", "left");
-const Seed = ecs.component<Seed>("seed", 0);
+const ecs = createEcs();
+const Position = ecs.component("pos", { x: 1, y: 1 });
+const Sprites = ecs.component("sprites", {});
+const Direction = ecs.component("dir", "left");
+const Seed = ecs.component("seed", 0);
 
 const img = document.createElement("img");
 img.src = sprite;
@@ -37,11 +27,7 @@ for (let i = 0; i < 100; i++) {
 }
 
 img.onload = () => {
-  ecs.system<{
-    pos: Position;
-    dir: Direction;
-    seed: Seed;
-  }>({
+  ecs.system({
     update: ({ c: { pos, dir, seed } }) => {
       const speed = 0.8;
       if (dir === "right") {
@@ -55,12 +41,7 @@ img.onload = () => {
     query: [Position, Direction, Seed],
   });
 
-  ecs.system<{
-    sprites: Sprites;
-    pos: Position;
-    dir: Direction;
-    seed: Seed;
-  }>({
+  ecs.system({
     setup: ({ c: { sprites } }) => {
       const imageCanvas = document.createElement("canvas");
       imageCanvas.width = img.width;
@@ -73,7 +54,7 @@ img.onload = () => {
       sprites.left = imageCanvas;
       sprites.right = img;
     },
-    update: ({ c: { sprites, pos, dir, seed } }) => {
+    update: ({ c: { sprites, pos, dir, seed }, payload: { t } }) => {
       const scale = 1;
       const frame = Math.floor(((t + seed) / 5) % 4);
       ctx.drawImage(
@@ -82,8 +63,8 @@ img.onload = () => {
         68,
         16,
         24,
-        pos.x as number,
-        pos.y as number,
+        pos.x,
+        pos.y,
         16 * scale,
         24 * scale
       );
